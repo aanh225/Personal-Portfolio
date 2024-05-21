@@ -1,56 +1,53 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useLocation } from 'react-router-dom';
-import { AppBar, Toolbar, Button, Container, Grid , TextField} from '@mui/material';
+import { AppBar, Toolbar, Button, Container, Grid } from '@mui/material';
 import { db } from '../firebase.js';
-import { addDoc, getDoc, collection, getDocs } from 'firebase/firestore';
+import { addDoc, collection, getDocs, updateDoc, doc } from 'firebase/firestore';
 
 export const Root = () => {
-  const location = useLocation();
-  const [question, setQuestion] = useState('');
+  const [response, setResponse] = useState('');
   const [responses, setResponses] = useState([]);
-  const [newResponse, setNewResponse] = useState('');
 
   useEffect(() => {
-    const fetchQuestionAndResponses = async () => {
-      const questionDoc = await getDoc(doc(db, 'responses', 'question1'));
-      if (questionDoc.exists()) {
-        setQuestion(questionDoc.data().text);
-      }
-
-      const responsesSnapshot = await getDocs(collection(db, 'responses', 'question1', 'answers'));
-      const responsesData = responsesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      responsesData.sort((a, b) => b.upvotes - a.upvotes);
-      setResponses(responsesData);
-    };
-
-    fetchQuestionAndResponses();
+    displayResponses();
   }, []);
 
-  const handleSubmitResponse = async (e) => {
-    e.preventDefault();
-    const docRef = await addDoc(collection(db, 'responses', 'question1', 'answers'), {
-      spot: newResponse,
-      upvotes: 0
-    });
-    console.log("created doc with id: ", docRef.id);
-
-    const responsesSnapshot = await getDocs(collection(db, 'responses', 'question1', 'answers'));
-    const responsesData = responsesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    responsesData.sort((a, b) => b.upvotes - a.upvotes);
-    setResponses(responsesData);
+  const submitResponse = async () => {
+    try {
+      const responseRef = collection(db, 'responses', 'question1', 'answers');
+      await addDoc(responseRef, {
+        spot: response,
+        numUpvotes: 0
+      });
+      console.log("Response submitted successfully");
+      setResponse('');
+      displayResponses();
+    } catch (error) {
+      console.error("Error ", error);
+    }
   };
 
-  const handleUpvoteResponse = async (responseId) => {
-    const responseRef = doc(db, 'responses', 'question1', 'answers', responseId);
-    await updateDoc(responseRef, {
-      upvotes: firebase.firestore.FieldValue.increment(1)
-    });
+  const displayResponses = async () => {
+    try {
+      const responseRef = collection(db, 'responses', 'question1', 'answers');
+      const querySnapshot = await getDocs(responseRef);
+      const data = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setResponses(data);
+    } catch (error) {
+      console.error("Error getting responses: ", error);
+    }
+  };
 
-    
-    const responsesSnapshot = await getDocs(collection(db, 'responses', 'question1', 'answers'));
-    const responsesData = responsesSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    responsesData.sort((a, b) => b.upvotes - a.upvotes);
-    setResponses(responsesData);
+  const upvote = async (answerId) => {
+    try {
+      const answerRef = doc(db, 'responses', 'question1', 'answers', answerId);
+      await updateDoc(answerRef, {
+        numUpvotes: firebase.firestore.FieldValue.increment(1)
+      });
+      console.log("Upvoted successfully");
+      displayResponses();
+    } catch (error) {
+      console.error("Error upvoting: ", error);
+    }
   };
 
   return (
@@ -59,10 +56,10 @@ export const Root = () => {
         <AppBar position="static">
           <Toolbar>
             <h1 style={{ flexGrow: 1 }}>Welcome!</h1>
-            <Button color="inherit" component={Link} to="/">Home</Button>
-            <Button color="inherit" component={Link} to="/about">About</Button>
-            <Button color="inherit" component={Link} to="/contacts">Contacts</Button>
-            <Button color="inherit" component={Link} to="/projects">Projects</Button>
+            <Button color="inherit">Home</Button>
+            <Button color="inherit">About</Button>
+            <Button color="inherit">Contacts</Button>
+            <Button color="inherit">Projects</Button>
           </Toolbar>
         </AppBar>
       </Grid>
@@ -70,24 +67,18 @@ export const Root = () => {
         <Container sx={{ mt: 2 }}>
           <h2>Hi, it's so nice to meet you!</h2>
           <p>My name is Anh Nguyen. Get to know me better.</p>
-          <h3>{question}</h3>
-          <form onSubmit={handleSubmitResponse}>
-            <TextField
-              label="what's your favorite food spot?"
-              variant="outlined"
-              fullWidth
-              value={newResponse}
-              onChange={(e) => setNewResponse(e.target.value)}
-              sx={{ mb: 2 }}
-            />
-            <Button type="submit" variant="contained">Submit Response</Button>
-          </form>
-          {responses.map(response => (
-            <div key={response.id}>
-              <h3>{response.spot} - number of upvotes: {response.upvotes}</h3>
-              <Button variant="outlined" onClick={() => handleUpvoteResponse(response.id)}>upvote this choice</Button>
-            </div>
-          ))}
+          <h3>What's your favorite food spot?</h3>
+          <input type="text" value={response} onChange={(e) => setResponse(e.target.value)} placeholder="Your response..." />
+          <button onClick={submitResponse}>Submit</button>
+          <div>
+            {responses.map((response) => (
+              <div key={response.id}>
+                <p>{response.spot}</p>
+                <p>Upvotes: {response.numUpvotes}</p>
+                <button onClick={() => upvote(response.id)}>Upvote</button>
+              </div>
+            ))}
+          </div>
         </Container>
       </Grid>
     </Grid>
