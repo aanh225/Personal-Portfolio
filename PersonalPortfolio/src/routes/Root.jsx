@@ -8,7 +8,18 @@ export const Root = () => {
   const [responses, setResponses] = useState([]);
 
   useEffect(() => {
-    displayResponses();
+    const fetchResponses = async () => {
+      try {
+        const responseRef = collection(db, 'responses', 'question1', 'answers');
+        const querySnapshot = await getDocs(responseRef);
+        const data = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setResponses(data);
+      } catch (error) {
+        console.error("Error getting responses: ", error);
+      }
+    };
+
+    fetchResponses();
   }, []);
 
   const submitResponse = async () => {
@@ -20,20 +31,12 @@ export const Root = () => {
       });
       console.log("Response submitted successfully");
       setResponse('');
-      displayResponses();
-    } catch (error) {
-      console.error("Error ", error);
-    }
-  };
-
-  const displayResponses = async () => {
-    try {
-      const responseRef = collection(db, 'responses', 'question1', 'answers');
+      
       const querySnapshot = await getDocs(responseRef);
       const data = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setResponses(data);
     } catch (error) {
-      console.error("Error getting responses: ", error);
+      console.error("Error submitting response: ", error);
     }
   };
 
@@ -43,10 +46,14 @@ export const Root = () => {
       await updateDoc(answerRef, {
         numUpvotes: firebase.firestore.FieldValue.increment(1)
       });
-      console.log("Upvoted successfully");
-      displayResponses();
+      console.log("upvoted successfully");
+
+      const responseRef = collection(db, 'responses', 'question1', 'answers');
+      const querySnapshot = await getDocs(responseRef);
+      const data = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      setResponses(data);
     } catch (error) {
-      console.error("Error upvoting: ", error);
+      console.error("error upvoting: ", error);
     }
   };
 
